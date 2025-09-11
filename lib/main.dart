@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
+import 'core/theme/app_theme.dart';
+import 'presentation/screens/welcome/welcome_screen.dart';
 
 void main() {
-  runApp(const MainApp());
+  runApp(const ExpenseTrackerApp());
 }
 
-class MainApp extends StatelessWidget {
-  const MainApp({super.key});
+class ExpenseTrackerApp extends StatelessWidget {
+  const ExpenseTrackerApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: Text('Hello World!'),
-        ),
-      ),
+    return MaterialApp(
+      title: 'Family Expense Tracker',
+      theme: AppTheme.lightTheme,
+      home: const WelcomeScreen(),
     );
   }
 }
