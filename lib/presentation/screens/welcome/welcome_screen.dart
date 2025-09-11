@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../screens/home/home_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -64,7 +65,10 @@ class WelcomeScreen extends StatelessWidget {
                   elevation: 4,
                 ),
                 onPressed: () {
-                  // later: Navigator.push to Home screen
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const HomeScreen()),
+                  );
                 },
                 child: Row(
                   mainAxisSize: MainAxisSize.min,

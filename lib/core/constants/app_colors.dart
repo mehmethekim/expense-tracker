@@ -6,4 +6,5 @@ class AppColors {
   static const Color mintCream = Color(0xFFEDF4ED);
   static const Color caputMortuum = Color(0xFF51291E);
   static const Color blackBean = Color(0xFF301014);
+  static const Color deepJungleGreen = Color(0xFF033918); // dark green
 }
