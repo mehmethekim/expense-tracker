@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../widgets/toggle_tabs.dart';
 import '../../../data/models/expense.dart';
@@ -15,7 +16,17 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 1; // default: Expense
   final List<Expense> _expenses = [];
   String? _selectedCategoryFilter; // null = show all
+  double _totalIncome = 0;
+  bool _isEditingIncome = false; // toggle for showing input
+  final TextEditingController _incomeController = TextEditingController();
 
+  @override
+  void dispose() {
+    _incomeController.dispose();
+    super.dispose();
+  }
+
+  // Category tabs for expenses
   Widget _buildCategoryTab(String label, Color color) {
     final bool isSelected = _selectedCategoryFilter == label;
 
@@ -66,6 +77,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void _addExpense(Expense expense) {
     setState(() {
       _expenses.add(expense);
+      _totalIncome -= expense.amount; // decrease income
+      
     });
   }
 
@@ -195,7 +208,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     // Amount input
                     TextField(
                       controller: amountController,
-                      keyboardType: TextInputType.number,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')), 
+                        // allows 123, 123.4, 123.45 (2 decimals max)
+                      ],
                       style: const TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
@@ -289,48 +306,167 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           const SizedBox(height: 20),
-          // Category filter row
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                _buildCategoryTab("Living Costs", AppColors.caputMortuum),
-                const SizedBox(width: 8),
-                _buildCategoryTab("Daily Needs", AppColors.cambridgeBlue),
-                const SizedBox(width: 8),
-                _buildCategoryTab("Extras", Colors.amber.shade600),
-              ],
-            ),
-          ),
-          Expanded(
-            child: _selectedIndex == 1
-                ? Builder(
-                    builder: (context) {
-                      // apply filter here
-                      final filteredExpenses = _selectedCategoryFilter == null
-                          ? _expenses
-                          : _expenses
-                              .where((e) => e.category == _selectedCategoryFilter)
-                              .toList();
 
-                      return ListView.builder(
-                        itemCount: filteredExpenses.length,
-                        itemBuilder: (context, index) {
-                          return ExpenseCard(expense: filteredExpenses[index]);
-                        },
-                      );
+          // Income Tab
+          if (_selectedIndex == 0)
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 40),
+                      const Text(
+                        "Total Income",
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.blackBean,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        "${_totalIncome.toStringAsFixed(2)} ₺",
+                        style: const TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.deepJungleGreen,
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+
+                      if (_isEditingIncome) ...[
+                        TextField(
+                          controller: _incomeController,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.caputMortuum,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: "Enter Income",
+                            filled: true,
+                            fillColor: Colors.grey.shade300,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.deepJungleGreen,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 24, vertical: 14),
+                              ),
+                              onPressed: () {
+                                final val = double.tryParse(
+                                        _incomeController.text) ??
+                                    0.0;
+                                setState(() {
+                                  _totalIncome += val; // add
+                                  _isEditingIncome = false;
+                                });
+                              },
+                              child: const Text("Add"),
+                            ),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.amber,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 24, vertical: 14),
+                              ),
+                              onPressed: () {
+                                final val = double.tryParse(
+                                        _incomeController.text) ??
+                                    0.0;
+                                setState(() {
+                                  _totalIncome = val; // overwrite
+                                  _isEditingIncome = false;
+                                });
+                              },
+                              child: const Text("Update"),
+                            ),
+                          ],
+                        ),
+                      ],
+
+                      const Spacer(),
+
+                      if (!_isEditingIncome)
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.deepJungleGreen,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 32, vertical: 14),
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _isEditingIncome = true;
+                              _incomeController.text = "";
+                            });
+                          },
+                          child: const Text("Edit"),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+          // Expense Tab
+          if (_selectedIndex == 1) ...[
+            // Category filter row
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  _buildCategoryTab("Living Costs", AppColors.caputMortuum),
+                  const SizedBox(width: 8),
+                  _buildCategoryTab("Daily Needs", AppColors.cambridgeBlue),
+                  const SizedBox(width: 8),
+                  _buildCategoryTab("Extras", Colors.amber.shade600),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Builder(
+                builder: (context) {
+                  final filteredExpenses = _selectedCategoryFilter == null
+                      ? _expenses
+                      : _expenses
+                          .where((e) => e.category == _selectedCategoryFilter)
+                          .toList();
+
+                  return ListView.builder(
+                    itemCount: filteredExpenses.length,
+                    itemBuilder: (context, index) {
+                      return ExpenseCard(expense: filteredExpenses[index]);
                     },
-                  )
-                : const Center(child: Text("Income Content")),
-          ),
+                  );
+                },
+              ),
+            ),
+          ],
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppColors.deepJungleGreen,
-        onPressed: _showAddExpenseSheet,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+      floatingActionButton: _selectedIndex == 1
+          ? FloatingActionButton(
+              backgroundColor: AppColors.deepJungleGreen,
+              onPressed: _showAddExpenseSheet,
+              child: const Icon(Icons.add, color: Colors.white),
+            )
+          : null,
     );
   }
 }
