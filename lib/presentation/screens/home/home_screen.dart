@@ -4,37 +4,44 @@ import '../../../core/constants/app_colors.dart';
 import '../../widgets/toggle_tabs.dart';
 import '../../../data/models/expense.dart';
 import '../../widgets/expense_card.dart';
+import '../../widgets/expense_pie_chart.dart';
+import '../../../data/services/firestore_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
+
+  
 }
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 1; // default: Expense
-  final List<Expense> _expenses = [];
-  String? _selectedCategoryFilter; // null = show all
-  double _totalIncome = 0;
-  bool _isEditingIncome = false; // toggle for showing input
+  String? _selectedCategoryFilter;
+  bool _isEditingIncome = false;
   final TextEditingController _incomeController = TextEditingController();
+  final FirestoreService _firestoreService = FirestoreService();
+  final String _familyId = "hekimoglu"; // hardcoded for now
 
   @override
   void dispose() {
     _incomeController.dispose();
     super.dispose();
   }
-
-  // Category tabs for expenses
+  @override
+  void initState() {
+    super.initState();
+    _firestoreService.ensureFamilyExists(_familyId);
+  }
+  // Category tabs
   Widget _buildCategoryTab(String label, Color color) {
     final bool isSelected = _selectedCategoryFilter == label;
-
     return GestureDetector(
       onTap: () {
         setState(() {
           if (_selectedCategoryFilter == label) {
-            _selectedCategoryFilter = null; // toggle off
+            _selectedCategoryFilter = null;
           } else {
             _selectedCategoryFilter = label;
           }
@@ -73,21 +80,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Method to add new expense
-  void _addExpense(Expense expense) {
-    setState(() {
-      _expenses.add(expense);
-      _totalIncome -= expense.amount; // decrease income
-      
-    });
-  }
-
   // Show bottom sheet for adding expense
-  void _showAddExpenseSheet() {
+  void _showAddExpenseSheet(double currentIncome) {
     final amountController = TextEditingController();
     final noteController = TextEditingController();
     String selectedCategory = "Living Costs";
-    String selectedUser = "M"; // default user
+    String selectedUser = "M";
 
     showModalBottomSheet(
       context: context,
@@ -109,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // User selector (M / Ş)
+                    // User selector
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -118,9 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           selected: selectedUser == "M",
                           selectedColor: AppColors.deepJungleGreen,
                           onSelected: (val) {
-                            if (val) {
-                              setModalState(() => selectedUser = "M");
-                            }
+                            if (val) setModalState(() => selectedUser = "M");
                           },
                           labelStyle: TextStyle(
                             color: selectedUser == "M"
@@ -134,9 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           selected: selectedUser == "Ş",
                           selectedColor: AppColors.caputMortuum,
                           onSelected: (val) {
-                            if (val) {
-                              setModalState(() => selectedUser = "Ş");
-                            }
+                            if (val) setModalState(() => selectedUser = "Ş");
                           },
                           labelStyle: TextStyle(
                             color: selectedUser == "Ş"
@@ -146,7 +140,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 20),
 
                     // Category selector
@@ -159,8 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           selectedColor: AppColors.caputMortuum,
                           onSelected: (val) {
                             if (val) {
-                              setModalState(() =>
-                                  selectedCategory = "Living Costs");
+                              setModalState(() => selectedCategory = "Living Costs");
                             }
                           },
                           labelStyle: TextStyle(
@@ -175,8 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           selectedColor: AppColors.cambridgeBlue,
                           onSelected: (val) {
                             if (val) {
-                              setModalState(() =>
-                                  selectedCategory = "Daily Needs");
+                              setModalState(() => selectedCategory = "Daily Needs");
                             }
                           },
                           labelStyle: TextStyle(
@@ -202,7 +193,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 20),
 
                     // Amount input
@@ -210,8 +200,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       controller: amountController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')), 
-                        // allows 123, 123.4, 123.45 (2 decimals max)
+                        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
                       ],
                       style: const TextStyle(
                         fontSize: 28,
@@ -227,7 +216,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 16),
 
                     // Note input
@@ -242,7 +230,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 20),
 
                     // Add button
@@ -250,28 +237,30 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.deepJungleGreen,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 40, vertical: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                       onPressed: () {
                         final expense = Expense(
-                          amount:
-                              double.tryParse(amountController.text) ?? 0.0,
+                          amount: double.tryParse(amountController.text) ?? 0.0,
                           note: noteController.text,
                           category: selectedCategory,
                           date: DateTime.now(),
                           user: selectedUser,
                         );
-                        _addExpense(expense);
+                        _firestoreService.addExpense(_familyId, expense);
+
+                        // decrease income
+                        _firestoreService.updateIncome(
+                          _familyId,
+                          currentIncome - expense.amount,
+                        );
+
                         Navigator.pop(context);
                       },
-                      child: const Text(
-                        "Add",
-                        style: TextStyle(fontSize: 18),
-                      ),
+                      child: const Text("Add", style: TextStyle(fontSize: 18)),
                     ),
                     const SizedBox(height: 20),
                   ],
@@ -307,127 +296,123 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 20),
 
-          // Income Tab
+          // INCOME TAB
           if (_selectedIndex == 0)
             Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 40),
-                      const Text(
-                        "Total Income",
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.blackBean,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        "${_totalIncome.toStringAsFixed(2)} ₺",
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.deepJungleGreen,
-                        ),
-                      ),
-                      const SizedBox(height: 40),
+              child: StreamBuilder<Map<String, dynamic>?>(
+                stream: _firestoreService.getIncome(_familyId),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final incomeData = snapshot.data;
+                  final totalIncome = incomeData?['income']?.toDouble() ?? 0.0;
 
-                      if (_isEditingIncome) ...[
-                        TextField(
-                          controller: _incomeController,
-                          keyboardType: TextInputType.number,
+                  return Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 40),
+                        const Text("Total Income",
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.blackBean,
+                            )),
+                        const SizedBox(height: 16),
+                        Text(
+                          "${totalIncome.toStringAsFixed(2)} ₺",
                           style: const TextStyle(
-                            fontSize: 28,
+                            fontSize: 32,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.caputMortuum,
-                          ),
-                          decoration: InputDecoration(
-                            labelText: "Enter Income",
-                            filled: true,
-                            fillColor: Colors.grey.shade300,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                            color: AppColors.deepJungleGreen,
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 40),
 
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.deepJungleGreen,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 24, vertical: 14),
-                              ),
-                              onPressed: () {
-                                final val = double.tryParse(
-                                        _incomeController.text) ??
-                                    0.0;
-                                setState(() {
-                                  _totalIncome += val; // add
-                                  _isEditingIncome = false;
-                                });
-                              },
-                              child: const Text("Add"),
+                        if (_isEditingIncome) ...[
+                          TextField(
+                            controller: _incomeController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            style: const TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.caputMortuum,
                             ),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.amber,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 24, vertical: 14),
+                            decoration: InputDecoration(
+                              labelText: "Enter Income",
+                              filled: true,
+                              fillColor: Colors.grey.shade300,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              onPressed: () {
-                                final val = double.tryParse(
-                                        _incomeController.text) ??
-                                    0.0;
-                                setState(() {
-                                  _totalIncome = val; // overwrite
-                                  _isEditingIncome = false;
-                                });
-                              },
-                              child: const Text("Update"),
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.deepJungleGreen,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 24, vertical: 14),
+                                ),
+                                onPressed: () {
+                                  final val = double.tryParse(_incomeController.text) ?? 0.0;
+                                  _firestoreService.updateIncome(_familyId, totalIncome + val);
+                                  setState(() => _isEditingIncome = false);
+                                },
+                                child: const Text("Add"),
+                              ),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.amber,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 24, vertical: 14),
+                                ),
+                                onPressed: () {
+                                  final val = double.tryParse(_incomeController.text) ?? 0.0;
+                                  _firestoreService.updateIncome(_familyId, val);
+                                  setState(() => _isEditingIncome = false);
+                                },
+                                child: const Text("Update"),
+                              ),
+                            ],
+                          ),
+                        ],
+
+                        const Spacer(),
+
+                        if (!_isEditingIncome)
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.deepJungleGreen,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _isEditingIncome = true;
+                                _incomeController.text = "";
+                              });
+                            },
+                            child: const Text("Edit"),
+                          ),
                       ],
-
-                      const Spacer(),
-
-                      if (!_isEditingIncome)
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.deepJungleGreen,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 32, vertical: 14),
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _isEditingIncome = true;
-                              _incomeController.text = "";
-                            });
-                          },
-                          child: const Text("Edit"),
-                        ),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               ),
             ),
 
-          // Expense Tab
+          // EXPENSE TAB
           if (_selectedIndex == 1) ...[
-            // Category filter row
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
@@ -439,32 +424,66 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-            Expanded(
-              child: Builder(
-                builder: (context) {
-                  final filteredExpenses = _selectedCategoryFilter == null
-                      ? _expenses
-                      : _expenses
-                          .where((e) => e.category == _selectedCategoryFilter)
-                          .toList();
 
-                  return ListView.builder(
-                    itemCount: filteredExpenses.length,
-                    itemBuilder: (context, index) {
-                      return ExpenseCard(expense: filteredExpenses[index]);
-                    },
-                  );
-                },
+            Expanded(
+              child: Column(
+                children: [
+                  // Pie chart
+                  Expanded(
+                    flex: 4,
+                    child: StreamBuilder<List<Expense>>(
+                      stream: _firestoreService.getExpenses(_familyId),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+                        final expenses = _selectedCategoryFilter == null
+                            ? snapshot.data!
+                            : snapshot.data!.where((e) => e.category == _selectedCategoryFilter).toList();
+                        return ExpensePieChart(expenses: expenses);
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Expense list
+                  Expanded(
+                    flex: 6,
+                    child: StreamBuilder<List<Expense>>(
+                      stream: _firestoreService.getExpenses(_familyId),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+                        final expenses = _selectedCategoryFilter == null
+                            ? snapshot.data!
+                            : snapshot.data!.where((e) => e.category == _selectedCategoryFilter).toList();
+                        return ListView.builder(
+                          itemCount: expenses.length,
+                          itemBuilder: (context, index) {
+                            return ExpenseCard(expense: expenses[index]);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ],
       ),
       floatingActionButton: _selectedIndex == 1
-          ? FloatingActionButton(
-              backgroundColor: AppColors.deepJungleGreen,
-              onPressed: _showAddExpenseSheet,
-              child: const Icon(Icons.add, color: Colors.white),
+          ? StreamBuilder<Map<String, dynamic>?>(
+              stream: _firestoreService.getIncome(_familyId),
+              builder: (context, snapshot) {
+                final currentIncome = snapshot.data?['income']?.toDouble() ?? 0.0;
+                return FloatingActionButton(
+                  backgroundColor: AppColors.deepJungleGreen,
+                  onPressed: () => _showAddExpenseSheet(currentIncome),
+                  child: const Icon(Icons.add, color: Colors.white),
+                );
+              },
             )
           : null,
     );
