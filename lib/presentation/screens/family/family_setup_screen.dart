@@ -24,8 +24,9 @@ class _FamilySetupScreenState extends State<FamilySetupScreen> {
     if (user == null) return;
 
     try {
+      // Create family in Firestore and return the unique familyId
       final familyId = await _firestoreService.createFamily(
-        _familyNameController.text,
+        _familyNameController.text.trim(),
         user.uid,
       );
 
@@ -33,10 +34,11 @@ class _FamilySetupScreenState extends State<FamilySetupScreen> {
         SnackBar(content: Text("Family created! ID: $familyId")),
       );
 
+      // Navigate to HomeScreen with familyId
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => const HomeScreen(),
+          builder: (_) => HomeScreen(familyId: familyId),
         ),
       );
     } catch (e) {
@@ -64,10 +66,12 @@ class _FamilySetupScreenState extends State<FamilySetupScreen> {
           const SnackBar(content: Text("Joined family successfully!")),
         );
 
+        // Navigate to HomeScreen with entered familyId
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => const HomeScreen(),
+            builder: (_) =>
+                HomeScreen(familyId: _familyIdController.text.trim()),
           ),
         );
       } else {

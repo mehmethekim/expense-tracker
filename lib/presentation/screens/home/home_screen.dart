@@ -6,9 +6,11 @@ import '../../../data/models/expense.dart';
 import '../../widgets/expense_card.dart';
 import '../../widgets/expense_pie_chart.dart';
 import '../../../data/services/firestore_service.dart';
-
+import '../settings/settings_screen.dart';
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, required this.familyId});
+
+  final String familyId;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -22,7 +24,6 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isEditingIncome = false;
   final TextEditingController _incomeController = TextEditingController();
   final FirestoreService _firestoreService = FirestoreService();
-  final String _familyId = "hekimoglu"; // hardcoded for now
 
   @override
   void dispose() {
@@ -32,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _firestoreService.ensureFamilyExists(_familyId);
+    _firestoreService.ensureFamilyExists(widget.familyId);
   }
   // Category tabs
   Widget _buildCategoryTab(String label, Color color) {
@@ -250,11 +251,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           date: DateTime.now(),
                           user: selectedUser,
                         );
-                        _firestoreService.addExpense(_familyId, expense);
+                        _firestoreService.addExpense(widget.familyId, expense);
 
                         // decrease income
                         _firestoreService.updateIncome(
-                          _familyId,
+                          widget.familyId,
                           currentIncome - expense.amount,
                         );
 
@@ -282,6 +283,19 @@ class _HomeScreenState extends State<HomeScreen> {
         automaticallyImplyLeading: false,
         elevation: 0,
         toolbarHeight: 60,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SettingsScreen(familyId: widget.familyId),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -300,7 +314,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (_selectedIndex == 0)
             Expanded(
               child: StreamBuilder<Map<String, dynamic>?>(
-                stream: _firestoreService.getIncome(_familyId),
+                stream: _firestoreService.getIncome(widget.familyId),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
@@ -362,7 +376,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 onPressed: () {
                                   final val = double.tryParse(_incomeController.text) ?? 0.0;
-                                  _firestoreService.updateIncome(_familyId, totalIncome + val);
+                                  _firestoreService.updateIncome(widget.familyId, totalIncome + val);
                                   setState(() => _isEditingIncome = false);
                                 },
                                 child: const Text("Add"),
@@ -376,7 +390,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 onPressed: () {
                                   final val = double.tryParse(_incomeController.text) ?? 0.0;
-                                  _firestoreService.updateIncome(_familyId, val);
+                                  _firestoreService.updateIncome(widget.familyId, val);
                                   setState(() => _isEditingIncome = false);
                                 },
                                 child: const Text("Update"),
@@ -432,7 +446,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Expanded(
                     flex: 4,
                     child: StreamBuilder<List<Expense>>(
-                      stream: _firestoreService.getExpenses(_familyId),
+                      stream: _firestoreService.getExpenses(widget.familyId),
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) {
                           return const Center(child: CircularProgressIndicator());
@@ -450,7 +464,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Expanded(
                     flex: 6,
                     child: StreamBuilder<List<Expense>>(
-                      stream: _firestoreService.getExpenses(_familyId),
+                      stream: _firestoreService.getExpenses(widget.familyId),
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) {
                           return const Center(child: CircularProgressIndicator());
@@ -475,7 +489,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       floatingActionButton: _selectedIndex == 1
           ? StreamBuilder<Map<String, dynamic>?>(
-              stream: _firestoreService.getIncome(_familyId),
+              stream: _firestoreService.getIncome(widget.familyId),
               builder: (context, snapshot) {
                 final currentIncome = snapshot.data?['income']?.toDouble() ?? 0.0;
                 return FloatingActionButton(

@@ -3,7 +3,9 @@ import '../../../core/constants/app_colors.dart';
 import '../../screens/home/home_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
-  const WelcomeScreen({super.key});
+  final String familyId; // ✅ receive familyId
+
+  const WelcomeScreen({super.key, required this.familyId});
 
   @override
   Widget build(BuildContext context) {
@@ -14,15 +16,15 @@ class WelcomeScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Spacer(flex: 2), // pushes title a bit upward
+              const Spacer(flex: 2),
 
               // Title
               Text(
                 "Expense Tracker",
                 style: TextStyle(
-                  fontSize: 55, // bigger
+                  fontSize: 55,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Cursive', // replace with Google Fonts later
+                  fontFamily: 'Cursive',
                   color: AppColors.mintCream,
                 ),
               ),
@@ -48,7 +50,7 @@ class WelcomeScreen extends StatelessWidget {
                 ),
               ),
 
-              const Spacer(flex: 3), // gives space before button
+              const Spacer(flex: 3),
 
               // Bigger button
               ElevatedButton(
@@ -56,8 +58,8 @@ class WelcomeScreen extends StatelessWidget {
                   backgroundColor: AppColors.mintCream,
                   foregroundColor: AppColors.blackBean,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 40, // wider
-                    vertical: 20,  // taller
+                    horizontal: 40,
+                    vertical: 20,
                   ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(40),
@@ -67,7 +69,9 @@ class WelcomeScreen extends StatelessWidget {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const HomeScreen()),
+                    MaterialPageRoute(
+                      builder: (context) => HomeScreen(familyId: familyId), // ✅ pass familyId
+                    ),
                   );
                 },
                 child: Row(
@@ -75,7 +79,7 @@ class WelcomeScreen extends StatelessWidget {
                   children: const [
                     Text(
                       "Let’s see!",
-                      style: TextStyle(fontSize: 18), // larger text
+                      style: TextStyle(fontSize: 18),
                     ),
                     SizedBox(width: 12),
                     Icon(Icons.arrow_forward, size: 22),

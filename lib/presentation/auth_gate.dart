@@ -12,15 +12,14 @@ class AuthGate extends StatelessWidget {
   Future<String?> _getUserFamily(String uid) async {
     final db = FirebaseFirestore.instance;
 
-    final families = await db.collection('families')
-        .where('members', arrayContains: uid)
-        .limit(1)
-        .get();
+    // Look up user’s familyId from their profile
+    final userDoc = await db.collection('users').doc(uid).get();
 
-    if (families.docs.isNotEmpty) {
-      return families.docs.first.id; // familyId
+    if (userDoc.exists && userDoc.data()?['familyId'] != null) {
+      return userDoc.data()!['familyId'];
     }
-    return null;
+
+    return null; // no family yet
   }
 
   @override
@@ -49,7 +48,7 @@ class AuthGate extends StatelessWidget {
 
             if (familySnapshot.hasData && familySnapshot.data != null) {
               // Belongs to a family → go Home
-              return const HomeScreen();
+              return HomeScreen(familyId: familySnapshot.data!);
             } else {
               // No family → go FamilySetup
               return const FamilySetupScreen();
