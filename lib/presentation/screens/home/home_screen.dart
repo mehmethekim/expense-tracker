@@ -7,6 +7,7 @@ import '../../widgets/expense_card.dart';
 import '../../widgets/expense_pie_chart.dart';
 import '../../../data/services/firestore_service.dart';
 import '../settings/settings_screen.dart';
+import '../family/family_selection_screen.dart';
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.familyId});
 
@@ -78,6 +79,104 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
         ],
       ),
+    );
+  }
+  void _showExpenseSheet(double currentIncome, {Expense? expense}) {
+    final amountController = TextEditingController(text: expense?.amount.toString() ?? '');
+    final noteController = TextEditingController(text: expense?.note ?? '');
+    String selectedCategory = expense?.category ?? "Living Costs";
+    String selectedUser = expense?.user ?? "M";
+    final isEditing = expense != null;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 16,
+                right: 16,
+                top: 24,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // === same chips as before ===
+                    // Amount + Note fields
+                    TextField(
+                      controller: amountController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                      ],
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.caputMortuum,
+                      ),
+                      decoration: const InputDecoration(labelText: "Enter Expense"),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: noteController,
+                      decoration: const InputDecoration(labelText: "Note"),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // === SAVE BUTTON ===
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.deepJungleGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
+                      ),
+                      onPressed: () {
+                        final exp = Expense(
+                          id: expense?.id,
+                          amount: double.tryParse(amountController.text) ?? 0.0,
+                          note: noteController.text,
+                          category: selectedCategory,
+                          date: DateTime.now(),
+                          user: selectedUser,
+                        );
+
+                        if (isEditing && expense?.id != null) {
+                          final diff = exp.amount - expense!.amount;
+
+                          _firestoreService.updateExpense(widget.familyId, expense!.id!, exp);
+
+                          // Adjust income by subtracting the diff
+                          _firestoreService.updateIncome(
+                            widget.familyId,
+                            currentIncome - diff,
+                          );
+                        } else {
+                          _firestoreService.addExpense(widget.familyId, exp);
+                          _firestoreService.updateIncome(
+                            widget.familyId,
+                            currentIncome - exp.amount,
+                          );
+                        }
+
+                        Navigator.pop(context);
+                      },
+                      child: Text(isEditing ? "Update" : "Add", style: const TextStyle(fontSize: 18)),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -273,16 +372,28 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.mintCream,
       appBar: AppBar(
         backgroundColor: AppColors.cambridgeBlue,
-        automaticallyImplyLeading: false,
         elevation: 0,
         toolbarHeight: 60,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => FamilySelectionScreen(
+                  families: [], // 👈 we'll pass real families here
+                ),
+              ),
+            );
+          },
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -297,6 +408,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+
       body: Column(
         children: [
           const SizedBox(height: 20),
@@ -475,9 +587,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         return ListView.builder(
                           itemCount: expenses.length,
                           itemBuilder: (context, index) {
-                            return ExpenseCard(expense: expenses[index]);
+                            final exp = expenses[index];
+                            return GestureDetector(
+                              onTap: () async {
+                                // Fetch latest income before editing
+                                final incomeData = await _firestoreService.getIncome(widget.familyId).first;
+                                final currentIncome = incomeData?['income']?.toDouble() ?? 0.0;
+
+                                _showExpenseSheet(currentIncome, expense: exp);
+                              },
+                              child: ExpenseCard(expense: exp),
+                            );
                           },
                         );
+
                       },
                     ),
                   ),

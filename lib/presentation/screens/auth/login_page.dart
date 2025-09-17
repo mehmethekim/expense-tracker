@@ -24,12 +24,8 @@ class _LoginPageState extends State<LoginPage> {
         final userId = user.uid;
 
         // Firestore check comes here later, for now go straight to FamilySetup
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const FamilySetupScreen(), // will redirect later
-          ),
-        );
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
